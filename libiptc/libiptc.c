@@ -39,7 +39,7 @@
 
 #include "linux_list.h"
 
-//#define IPTC_DEBUG2 1
+#define IPTC_DEBUG2 1
 
 #ifdef IPTC_DEBUG2
 #include <fcntl.h>
@@ -1846,6 +1846,51 @@ TC_REPLACE_ENTRY(const IPT_CHAINLABEL chain,
 	return 1;
 }
 
+//TODO
+//Copied from iptables/iptables.c
+
+#define IP_PARTS_NATIVE(n)			\
+(unsigned int)((n)>>24)&0xFF,			\
+(unsigned int)((n)>>16)&0xFF,			\
+(unsigned int)((n)>>8)&0xFF,			\
+(unsigned int)((n)&0xFF)
+
+#define IP_PARTS(n) IP_PARTS_NATIVE(ntohl(n))
+
+//TODO
+//Copied from iptables/iptables.c
+
+/* Print a given ip including mask if necessary. */
+static void print_ip(const char *prefix, uint32_t ip,
+		     uint32_t mask, int invert)
+{
+	uint32_t bits, hmask = ntohl(mask);
+	int i;
+
+	if (!mask && !ip && !invert)
+		return;
+
+	printf("%s %s %u.%u.%u.%u",
+		invert ? " !" : "",
+		prefix,
+		IP_PARTS(ip));
+
+	if (mask == 0xFFFFFFFFU) {
+		printf("/32");
+		return;
+	}
+
+	i    = 32;
+	bits = 0xFFFFFFFEU;
+	while (--i >= 0 && hmask != bits)
+		bits <<= 1;
+	if (i >= 0)
+		printf("/%u", i);
+	else
+		printf("/%u.%u.%u.%u", IP_PARTS(mask));
+}
+
+
 /* Append entry `fw' to chain `chain'.  Equivalent to insert with
    rulenum = length of chain. */
 int
@@ -1856,6 +1901,48 @@ TC_APPEND_ENTRY(const IPT_CHAINLABEL chain,
 	struct chain_head *c;
 	struct rule_head *r;
 
+	//Following is debug print of intercepted rule
+	DEBUGP("+Appending Rule...\n");
+
+	//FIXME if ipv6 rule added, probably crash
+	struct ipt_entry * rule = (struct ipt_entry *)e;
+
+	//DEBUGP("++comefrom %d\n", rule->comefrom);
+	//DEBUGP("++elems %s\n", rule->elems);
+
+	DEBUGP("++ip.iniface   %s\n", rule->ip.iniface);
+	DEBUGP("++ip.outiface  %s\n", rule->ip.outiface);
+	DEBUGP("++ip.iniface_mask  %s\n", rule->ip.iniface_mask);
+	DEBUGP("++ip.outiface_mask  %s\n", rule->ip.outiface);
+
+	DEBUGP("++ip.proto  %u\n", rule->ip.proto);
+	DEBUGP("++ip.flags  %u\n", rule->ip.flags);
+
+	print_ip("\nsrc-ip", rule->ip.src.s_addr,rule->ip.smsk.s_addr,
+			rule->ip.invflags & IPT_INV_SRCIP);
+
+	print_ip("\ndst-ip", rule->ip.dst.s_addr, rule->ip.dmsk.s_addr,
+			rule->ip.invflags & IPT_INV_DSTIP);
+
+
+	DEBUGP("++ip.invflags  %u\n", rule->ip.invflags);
+
+
+	DEBUGP("++ip.proto  %u\n", rule->ip.proto);
+
+
+	DEBUGP("++%d\n", rule->comefrom);
+
+
+
+
+	//Avoid rules to get injected
+	return 1;
+
+
+	//COMMENT OLD CODE
+
+/*
 	iptc_fn = TC_APPEND_ENTRY;
 	if (!(c = iptcc_find_label(chain, handle))) {
 		DEBUGP("unable to find chain `%s'\n", chain);
@@ -1884,6 +1971,7 @@ TC_APPEND_ENTRY(const IPT_CHAINLABEL chain,
 	set_changed(handle);
 
 	return 1;
+*/
 }
 
 static inline int
