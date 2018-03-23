@@ -37,9 +37,11 @@
 #include <xtables.h>
 #include <libiptc/xtcshared.h>
 
+#include <netdb.h>
+
 #include "linux_list.h"
 
-#define IPTC_DEBUG2 1
+//#define IPTC_DEBUG2 1
 
 #ifdef IPTC_DEBUG2
 #include <fcntl.h>
@@ -1870,7 +1872,7 @@ static void print_ip(const char *prefix, uint32_t ip,
 	if (!mask && !ip && !invert)
 		return;
 
-	printf("%s %s %u.%u.%u.%u",
+	printf("%s %s%u.%u.%u.%u",
 		invert ? " !" : "",
 		prefix,
 		IP_PARTS(ip));
@@ -1890,6 +1892,94 @@ static void print_ip(const char *prefix, uint32_t ip,
 		printf("/%u.%u.%u.%u", IP_PARTS(mask));
 }
 
+static void print_proto(uint16_t proto, int invert)
+{
+	if (proto) {
+		unsigned int i;
+		const char *invertstr = invert ? " !" : "";
+
+		const struct protoent *pent = getprotobynumber(proto);
+		if (pent) {
+			printf("%s l4proto=%s", invertstr, pent->p_name);
+			return;
+		}
+
+		for (i = 0; xtables_chain_protos[i].name != NULL; ++i)
+			if (xtables_chain_protos[i].num == proto) {
+				printf("%s l4proto=%s",
+				       invertstr, xtables_chain_protos[i].name);
+				return;
+			}
+
+		printf("%s l4proto=%u", invertstr, proto);
+	}
+}
+
+// static const struct tcp_flag_names tcp_flag_names_xlate[] = {
+// 	{ "fin", 0x01 },
+// 	{ "syn", 0x02 },
+// 	{ "rst", 0x04 },
+// 	{ "psh", 0x08 },
+// 	{ "ack", 0x10 },
+// 	{ "urg", 0x20 },
+// };
+
+// static void
+// print_tcpf(uint8_t flags)
+// {
+// 	int have_flag = 0;
+
+// 	while (flags) {
+// 		unsigned int i;
+
+// 		for (i = 0; (flags & tcp_flag_names[i].flag) == 0; i++);
+
+// 		if (have_flag)
+// 			printf(",");
+// 		printf("%s", tcp_flag_names[i].name);
+// 		have_flag = 1;
+
+// 		flags &= ~tcp_flag_names[i].flag;
+// 	}
+
+// 	if (!have_flag)
+// 		printf("NONE");
+// }
+
+static void print_iov_rule(const IPT_CHAINLABEL chain, const char *action, const struct ipt_entry *rule){
+
+	printf("+++iptables -> iov-iptables translator+++\n\n");
+	
+	char RULE_INDEX[20] = "";
+	
+	printf("iovnetctl iov-iptables chain %s rule %s %s ", chain, action, RULE_INDEX );
+
+	print_ip("src=", rule->ip.src.s_addr,rule->ip.smsk.s_addr,
+			rule->ip.invflags & IPT_INV_SRCIP);
+
+	print_ip("dst=", rule->ip.dst.s_addr, rule->ip.dmsk.s_addr,
+			rule->ip.invflags & IPT_INV_DSTIP);
+
+
+	// TODO Define a syntax to print interfaces in iovnet, still not supported.
+
+	// print_iface('i', e->ip.iniface, e->ip.iniface_mask,
+	// 	    e->ip.invflags & IPT_INV_VIA_IN);
+
+	// print_iface('o', e->ip.outiface, e->ip.outiface_mask,
+	// 	    e->ip.invflags & IPT_INV_VIA_OUT);
+
+
+	print_proto(rule->ip.proto, rule->ip.invflags & XT_INV_PROTO);
+
+	if (rule->ip.flags & IPT_F_FRAG)
+		printf("%s -f",
+		       rule->ip.invflags & IPT_INV_FRAG ? " !" : "");
+
+	// print_tcpf(rule->ip.flags);
+
+	printf("\n");
+}
 
 /* Append entry `fw' to chain `chain'.  Equivalent to insert with
    rulenum = length of chain. */
@@ -1907,41 +1997,13 @@ TC_APPEND_ENTRY(const IPT_CHAINLABEL chain,
 	//FIXME if ipv6 rule added, probably crash
 	struct ipt_entry * rule = (struct ipt_entry *)e;
 
-	//DEBUGP("++comefrom %d\n", rule->comefrom);
-	//DEBUGP("++elems %s\n", rule->elems);
-
-	DEBUGP("++ip.iniface   %s\n", rule->ip.iniface);
-	DEBUGP("++ip.outiface  %s\n", rule->ip.outiface);
-	DEBUGP("++ip.iniface_mask  %s\n", rule->ip.iniface_mask);
-	DEBUGP("++ip.outiface_mask  %s\n", rule->ip.outiface);
-
-	DEBUGP("++ip.proto  %u\n", rule->ip.proto);
-	DEBUGP("++ip.flags  %u\n", rule->ip.flags);
-
-	print_ip("\nsrc-ip", rule->ip.src.s_addr,rule->ip.smsk.s_addr,
-			rule->ip.invflags & IPT_INV_SRCIP);
-
-	print_ip("\ndst-ip", rule->ip.dst.s_addr, rule->ip.dmsk.s_addr,
-			rule->ip.invflags & IPT_INV_DSTIP);
-
-
-	DEBUGP("++ip.invflags  %u\n", rule->ip.invflags);
-
-
-	DEBUGP("++ip.proto  %u\n", rule->ip.proto);
-
-
-	DEBUGP("++%d\n", rule->comefrom);
-
-
-
+	print_iov_rule(chain, "append", rule);
+	// printf("+chain: %s\n", chain);
 
 	//Avoid rules to get injected
 	return 1;
 
-
 	//COMMENT OLD CODE
-
 /*
 	iptc_fn = TC_APPEND_ENTRY;
 	if (!(c = iptcc_find_label(chain, handle))) {
