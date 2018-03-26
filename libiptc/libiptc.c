@@ -1946,13 +1946,15 @@ static void print_proto(uint16_t proto, int invert)
 // 		printf("NONE");
 // }
 
-static void print_iov_rule(const IPT_CHAINLABEL chain, const char *action, const struct ipt_entry *rule){
+static void print_iov_rule(const IPT_CHAINLABEL chain, const char *action, const struct ipt_entry *rule, struct xtc_handle *handle){
+
+	const struct xt_entry_target *t;
 
 	printf("+++iptables -> iov-iptables translator+++\n\n");
 	
 	char RULE_INDEX[20] = "";
 	
-	printf("iovnetctl iov-iptables chain %s rule %s %s ", chain, action, RULE_INDEX );
+	printf("iovnetctl iov-iptables chain %s rule %s%s ", chain, action, RULE_INDEX );
 
 	print_ip("src=", rule->ip.src.s_addr,rule->ip.smsk.s_addr,
 			rule->ip.invflags & IPT_INV_SRCIP);
@@ -1978,6 +1980,12 @@ static void print_iov_rule(const IPT_CHAINLABEL chain, const char *action, const
 
 	// print_tcpf(rule->ip.flags);
 
+
+	// TODO verify if this approach is always safe
+	// FIXME this implementation do not support user-defined CHAINS
+	t = ipt_get_target((struct ipt_entry *)rule);
+	printf(" action=%s", t->u.user.name);
+
 	printf("\n");
 }
 
@@ -1997,7 +2005,7 @@ TC_APPEND_ENTRY(const IPT_CHAINLABEL chain,
 	//FIXME if ipv6 rule added, probably crash
 	struct ipt_entry * rule = (struct ipt_entry *)e;
 
-	print_iov_rule(chain, "append", rule);
+	print_iov_rule(chain, "append", rule, handle);
 	// printf("+chain: %s\n", chain);
 
 	//Avoid rules to get injected
