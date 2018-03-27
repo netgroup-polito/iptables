@@ -1966,44 +1966,57 @@ TC_REPLACE_ENTRY(const IPT_CHAINLABEL chain,
 	struct chain_head *c;
 	struct rule_head *r, *old;
 
-	iptc_fn = TC_REPLACE_ENTRY;
+	//Following is debug print of intercepted rule
+	DEBUGP("+Replacing Rule...\n");
 
-	if (!(c = iptcc_find_label(chain, handle))) {
-		errno = ENOENT;
-		return 0;
-	}
+	//FIXME if ipv6 rule added, probably crash
+	struct ipt_entry * rule = (struct ipt_entry *)e;
 
-	if (rulenum >= c->num_rules) {
-		errno = E2BIG;
-		return 0;
-	}
+	print_iov_rule(chain, "replace", rule, rulenum, handle);
+	// printf("+chain: %s\n", chain);
 
-	/* Take advantage of the double linked list if possible. */
-	if (rulenum + 1 <= c->num_rules/2) {
-		old = iptcc_get_rule_num(c, rulenum + 1);
-	} else {
-		old = iptcc_get_rule_num_reverse(c, c->num_rules - rulenum);
-	}
-
-	if (!(r = iptcc_alloc_rule(c, e->next_offset))) {
-		errno = ENOMEM;
-		return 0;
-	}
-
-	memcpy(r->entry, e, e->next_offset);
-	r->counter_map.maptype = COUNTER_MAP_SET;
-
-	if (!iptcc_map_target(handle, r, false)) {
-		free(r);
-		return 0;
-	}
-
-	list_add(&r->list, &old->list);
-	iptcc_delete_rule(old);
-
-	set_changed(handle);
-
+	//Avoid rules to get injected
 	return 1;
+
+	//COMMENT OLD CODE
+	// iptc_fn = TC_REPLACE_ENTRY;
+
+	// if (!(c = iptcc_find_label(chain, handle))) {
+	// 	errno = ENOENT;
+	// 	return 0;
+	// }
+
+	// if (rulenum >= c->num_rules) {
+	// 	errno = E2BIG;
+	// 	return 0;
+	// }
+
+	// /* Take advantage of the double linked list if possible. */
+	// if (rulenum + 1 <= c->num_rules/2) {
+	// 	old = iptcc_get_rule_num(c, rulenum + 1);
+	// } else {
+	// 	old = iptcc_get_rule_num_reverse(c, c->num_rules - rulenum);
+	// }
+
+	// if (!(r = iptcc_alloc_rule(c, e->next_offset))) {
+	// 	errno = ENOMEM;
+	// 	return 0;
+	// }
+
+	// memcpy(r->entry, e, e->next_offset);
+	// r->counter_map.maptype = COUNTER_MAP_SET;
+
+	// if (!iptcc_map_target(handle, r, false)) {
+	// 	free(r);
+	// 	return 0;
+	// }
+
+	// list_add(&r->list, &old->list);
+	// iptcc_delete_rule(old);
+
+	// set_changed(handle);
+
+	// return 1;
 }
 
 /* Append entry `fw' to chain `chain'.  Equivalent to insert with
@@ -2138,71 +2151,84 @@ static int delete_entry(const IPT_CHAINLABEL chain, const STRUCT_ENTRY *origfw,
 	struct chain_head *c;
 	struct rule_head *r, *i;
 
-	iptc_fn = TC_DELETE_ENTRY;
-	if (!(c = iptcc_find_label(chain, handle))) {
-		errno = ENOENT;
-		return 0;
-	}
+	//Following is debug print of intercepted rule
+	DEBUGP("+Deleting Rule...\n");
 
-	/* Create a rule_head from origfw. */
-	r = iptcc_alloc_rule(c, origfw->next_offset);
-	if (!r) {
-		errno = ENOMEM;
-		return 0;
-	}
+	//FIXME if ipv6 rule added, probably crash
+	struct ipt_entry * rule = (struct ipt_entry *)origfw;
 
-	memcpy(r->entry, origfw, origfw->next_offset);
-	r->counter_map.maptype = COUNTER_MAP_NOMAP;
-	if (!iptcc_map_target(handle, r, dry_run)) {
-		DEBUGP("unable to map target of rule for chain `%s'\n", chain);
-		free(r);
-		return 0;
-	} else {
-		/* iptcc_map_target increment target chain references
-		 * since this is a fake rule only used for matching
-		 * the chain references count is decremented again.
-		 */
-		if (r->type == IPTCC_R_JUMP
-		    && r->jump)
-			r->jump->references--;
-	}
+	print_iov_rule(chain, "delete", rule, -1, handle);
+	// printf("+chain: %s\n", chain);
 
-	list_for_each_entry(i, &c->rules, list) {
-		unsigned char *mask;
+	//Avoid rules to get injected
+	return 1;
 
-		mask = is_same(r->entry, i->entry, matchmask);
-		if (!mask)
-			continue;
+	//COMMENT OLD CODE
+	// iptc_fn = TC_DELETE_ENTRY;
+	// if (!(c = iptcc_find_label(chain, handle))) {
+	// 	errno = ENOENT;
+	// 	return 0;
+	// }
 
-		if (!target_same(r, i, mask))
-			continue;
+	// /* Create a rule_head from origfw. */
+	// r = iptcc_alloc_rule(c, origfw->next_offset);
+	// if (!r) {
+	// 	errno = ENOMEM;
+	// 	return 0;
+	// }
 
-		/* if we are just doing a dry run, we simply skip the rest */
-		if (dry_run){
-			free(r);
-			return 1;
-		}
+	// memcpy(r->entry, origfw, origfw->next_offset);
+	// r->counter_map.maptype = COUNTER_MAP_NOMAP;
+	// if (!iptcc_map_target(handle, r, dry_run)) {
+	// 	DEBUGP("unable to map target of rule for chain `%s'\n", chain);
+	// 	free(r);
+	// 	return 0;
+	// } else {
+	// 	/* iptcc_map_target increment target chain references
+	// 	 * since this is a fake rule only used for matching
+	// 	 * the chain references count is decremented again.
+	// 	 */
+	// 	if (r->type == IPTCC_R_JUMP
+	// 	    && r->jump)
+	// 		r->jump->references--;
+	// }
 
-		/* If we are about to delete the rule that is the
-		 * current iterator, move rule iterator back.  next
-		 * pointer will then point to real next node */
-		if (i == handle->rule_iterator_cur) {
-			handle->rule_iterator_cur =
-				list_entry(handle->rule_iterator_cur->list.prev,
-					   struct rule_head, list);
-		}
+	// list_for_each_entry(i, &c->rules, list) {
+	// 	unsigned char *mask;
 
-		c->num_rules--;
-		iptcc_delete_rule(i);
+	// 	mask = is_same(r->entry, i->entry, matchmask);
+	// 	if (!mask)
+	// 		continue;
 
-		set_changed(handle);
-		free(r);
-		return 1;
-	}
+	// 	if (!target_same(r, i, mask))
+	// 		continue;
 
-	free(r);
-	errno = ENOENT;
-	return 0;
+	// 	/* if we are just doing a dry run, we simply skip the rest */
+	// 	if (dry_run){
+	// 		free(r);
+	// 		return 1;
+	// 	}
+
+	// 	/* If we are about to delete the rule that is the
+	// 	 * current iterator, move rule iterator back.  next
+	// 	 * pointer will then point to real next node */
+	// 	if (i == handle->rule_iterator_cur) {
+	// 		handle->rule_iterator_cur =
+	// 			list_entry(handle->rule_iterator_cur->list.prev,
+	// 				   struct rule_head, list);
+	// 	}
+
+	// 	c->num_rules--;
+	// 	iptcc_delete_rule(i);
+
+	// 	set_changed(handle);
+	// 	free(r);
+	// 	return 1;
+	// }
+
+	// free(r);
+	// errno = ENOENT;
+	// return 0;
 }
 
 /* check whether a specified rule is present */
