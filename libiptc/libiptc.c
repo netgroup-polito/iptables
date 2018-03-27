@@ -198,6 +198,151 @@ static void do_check(struct xtc_handle *h, unsigned int line);
 #endif
 
 
+/***Utility for iov converter: copied from iptables.c**/
+
+//TODO
+//Copied from iptables/iptables.c
+
+#define IP_PARTS_NATIVE(n)			\
+(unsigned int)((n)>>24)&0xFF,			\
+(unsigned int)((n)>>16)&0xFF,			\
+(unsigned int)((n)>>8)&0xFF,			\
+(unsigned int)((n)&0xFF)
+
+#define IP_PARTS(n) IP_PARTS_NATIVE(ntohl(n))
+
+//TODO
+//Copied from iptables/iptables.c
+
+/* Print a given ip including mask if necessary. */
+static void print_ip(const char *prefix, uint32_t ip,
+		     uint32_t mask, int invert)
+{
+	uint32_t bits, hmask = ntohl(mask);
+	int i;
+
+	if (!mask && !ip && !invert)
+		return;
+
+	printf("%s %s%u.%u.%u.%u",
+		invert ? " !" : "",
+		prefix,
+		IP_PARTS(ip));
+
+	if (mask == 0xFFFFFFFFU) {
+		printf("/32");
+		return;
+	}
+
+	i    = 32;
+	bits = 0xFFFFFFFEU;
+	while (--i >= 0 && hmask != bits)
+		bits <<= 1;
+	if (i >= 0)
+		printf("/%u", i);
+	else
+		printf("/%u.%u.%u.%u", IP_PARTS(mask));
+}
+
+//TODO
+//Copied from iptables/iptables.c
+static void print_proto(uint16_t proto, int invert)
+{
+	if (proto) {
+		unsigned int i;
+		const char *invertstr = invert ? " !" : "";
+
+		const struct protoent *pent = getprotobynumber(proto);
+		if (pent) {
+			printf("%s l4proto=%s", invertstr, pent->p_name);
+			return;
+		}
+
+		for (i = 0; xtables_chain_protos[i].name != NULL; ++i)
+			if (xtables_chain_protos[i].num == proto) {
+				printf("%s l4proto=%s",
+				       invertstr, xtables_chain_protos[i].name);
+				return;
+			}
+
+		printf("%s l4proto=%u", invertstr, proto);
+	}
+}
+
+//TODO
+//Copied from iptables/iptables.c
+static int print_match_save(const struct xt_entry_match *e,
+			const struct ipt_ip *ip)
+{
+	const struct xtables_match *match =
+		xtables_find_match(e->u.user.name, XTF_TRY_LOAD, NULL);
+
+	if (match) {
+		// proto is already print in l4proto
+		// printf(" -m %s",
+		// 	match->alias ? match->alias(e) : e->u.user.name);
+
+		/* some matches don't provide a save function */
+		if (match->save && e->u.user.revision == match->revision)
+			match->save(ip, e);
+		// else if (match->save)
+		// 	printf(unsupported_rev);
+	} else {
+		if (e->u.match_size) {
+			fprintf(stderr,
+				"Can't find library for match `%s'\n",
+				e->u.user.name);
+			exit(1);
+		}
+	}
+	return 0;
+}
+
+static void print_iov_rule(const IPT_CHAINLABEL chain, const char *action, const struct ipt_entry *rule, unsigned int rulenum, struct xtc_handle *handle){
+
+	const struct xt_entry_target *t;
+
+	printf("+++iptables -> iov-iptables translator+++\n\n");
+	
+	char RULE_INDEX[20] = "";
+	
+	printf("iovnetctl iov-iptables chain %s rule %s ", chain, action);
+
+	if (rulenum!=-1){
+		printf("%d ", rulenum + 1);
+	}
+
+	print_ip("src=", rule->ip.src.s_addr,rule->ip.smsk.s_addr,
+			rule->ip.invflags & IPT_INV_SRCIP);
+
+	print_ip("dst=", rule->ip.dst.s_addr, rule->ip.dmsk.s_addr,
+			rule->ip.invflags & IPT_INV_DSTIP);
+
+
+	// TODO Define a syntax to print interfaces in iovnet, still not supported.
+
+	// print_iface('i', e->ip.iniface, e->ip.iniface_mask,
+	// 	    e->ip.invflags & IPT_INV_VIA_IN);
+
+	// print_iface('o', e->ip.outiface, e->ip.outiface_mask,
+	// 	    e->ip.invflags & IPT_INV_VIA_OUT);
+
+
+	print_proto(rule->ip.proto, rule->ip.invflags & XT_INV_PROTO);
+
+	// print protocol dependent fields
+	// e.g. tcp/udp ports and/or tcp-flags
+	if (rule->target_offset)
+		IPT_MATCH_ITERATE(rule, print_match_save, &rule->ip);
+
+	// TODO verify if this approach is always safe
+	// FIXME this implementation do not support user-defined CHAINS
+	t = ipt_get_target((struct ipt_entry *)rule);
+	printf(" action=%s", t->u.user.name);
+
+	printf("\n");
+}
+
 /**********************************************************************
  * iptc blob utility functions (iptcb_*)
  **********************************************************************/
@@ -1750,52 +1895,65 @@ TC_INSERT_ENTRY(const IPT_CHAINLABEL chain,
 	struct rule_head *r;
 	struct list_head *prev;
 
-	iptc_fn = TC_INSERT_ENTRY;
+	//Following is debug print of intercepted rule
+	DEBUGP("+Inserting Rule...\n");
 
-	if (!(c = iptcc_find_label(chain, handle))) {
-		errno = ENOENT;
-		return 0;
-	}
+	//FIXME if ipv6 rule added, probably crash
+	struct ipt_entry * rule = (struct ipt_entry *)e;
 
-	/* first rulenum index = 0
-	   first c->num_rules index = 1 */
-	if (rulenum > c->num_rules) {
-		errno = E2BIG;
-		return 0;
-	}
+	print_iov_rule(chain, "insert", rule, rulenum, handle);
+	// printf("+chain: %s\n", chain);
 
-	/* If we are inserting at the end just take advantage of the
-	   double linked list, insert will happen before the entry
-	   prev points to. */
-	if (rulenum == c->num_rules) {
-		prev = &c->rules;
-	} else if (rulenum + 1 <= c->num_rules/2) {
-		r = iptcc_get_rule_num(c, rulenum + 1);
-		prev = &r->list;
-	} else {
-		r = iptcc_get_rule_num_reverse(c, c->num_rules - rulenum);
-		prev = &r->list;
-	}
-
-	if (!(r = iptcc_alloc_rule(c, e->next_offset))) {
-		errno = ENOMEM;
-		return 0;
-	}
-
-	memcpy(r->entry, e, e->next_offset);
-	r->counter_map.maptype = COUNTER_MAP_SET;
-
-	if (!iptcc_map_target(handle, r, false)) {
-		free(r);
-		return 0;
-	}
-
-	list_add_tail(&r->list, prev);
-	c->num_rules++;
-
-	set_changed(handle);
-
+	//Avoid rules to get injected
 	return 1;
+
+	//COMMENT OLD CODE
+	// iptc_fn = TC_INSERT_ENTRY;
+
+	// if (!(c = iptcc_find_label(chain, handle))) {
+	// 	errno = ENOENT;
+	// 	return 0;
+	// }
+
+	// /* first rulenum index = 0
+	//    first c->num_rules index = 1 */
+	// if (rulenum > c->num_rules) {
+	// 	errno = E2BIG;
+	// 	return 0;
+	// }
+
+	// /* If we are inserting at the end just take advantage of the
+	//    double linked list, insert will happen before the entry
+	//    prev points to. */
+	// if (rulenum == c->num_rules) {
+	// 	prev = &c->rules;
+	// } else if (rulenum + 1 <= c->num_rules/2) {
+	// 	r = iptcc_get_rule_num(c, rulenum + 1);
+	// 	prev = &r->list;
+	// } else {
+	// 	r = iptcc_get_rule_num_reverse(c, c->num_rules - rulenum);
+	// 	prev = &r->list;
+	// }
+
+	// if (!(r = iptcc_alloc_rule(c, e->next_offset))) {
+	// 	errno = ENOMEM;
+	// 	return 0;
+	// }
+
+	// memcpy(r->entry, e, e->next_offset);
+	// r->counter_map.maptype = COUNTER_MAP_SET;
+
+	// if (!iptcc_map_target(handle, r, false)) {
+	// 	free(r);
+	// 	return 0;
+	// }
+
+	// list_add_tail(&r->list, prev);
+	// c->num_rules++;
+
+	// set_changed(handle);
+
+	// return 1;
 }
 
 /* Atomically replace rule `rulenum' in `chain' with `fw'. */
@@ -1848,141 +2006,6 @@ TC_REPLACE_ENTRY(const IPT_CHAINLABEL chain,
 	return 1;
 }
 
-//TODO
-//Copied from iptables/iptables.c
-
-#define IP_PARTS_NATIVE(n)			\
-(unsigned int)((n)>>24)&0xFF,			\
-(unsigned int)((n)>>16)&0xFF,			\
-(unsigned int)((n)>>8)&0xFF,			\
-(unsigned int)((n)&0xFF)
-
-#define IP_PARTS(n) IP_PARTS_NATIVE(ntohl(n))
-
-//TODO
-//Copied from iptables/iptables.c
-
-/* Print a given ip including mask if necessary. */
-static void print_ip(const char *prefix, uint32_t ip,
-		     uint32_t mask, int invert)
-{
-	uint32_t bits, hmask = ntohl(mask);
-	int i;
-
-	if (!mask && !ip && !invert)
-		return;
-
-	printf("%s %s%u.%u.%u.%u",
-		invert ? " !" : "",
-		prefix,
-		IP_PARTS(ip));
-
-	if (mask == 0xFFFFFFFFU) {
-		printf("/32");
-		return;
-	}
-
-	i    = 32;
-	bits = 0xFFFFFFFEU;
-	while (--i >= 0 && hmask != bits)
-		bits <<= 1;
-	if (i >= 0)
-		printf("/%u", i);
-	else
-		printf("/%u.%u.%u.%u", IP_PARTS(mask));
-}
-
-static void print_proto(uint16_t proto, int invert)
-{
-	if (proto) {
-		unsigned int i;
-		const char *invertstr = invert ? " !" : "";
-
-		const struct protoent *pent = getprotobynumber(proto);
-		if (pent) {
-			printf("%s l4proto=%s", invertstr, pent->p_name);
-			return;
-		}
-
-		for (i = 0; xtables_chain_protos[i].name != NULL; ++i)
-			if (xtables_chain_protos[i].num == proto) {
-				printf("%s l4proto=%s",
-				       invertstr, xtables_chain_protos[i].name);
-				return;
-			}
-
-		printf("%s l4proto=%u", invertstr, proto);
-	}
-}
-
-static int print_match_save(const struct xt_entry_match *e,
-			const struct ipt_ip *ip)
-{
-	const struct xtables_match *match =
-		xtables_find_match(e->u.user.name, XTF_TRY_LOAD, NULL);
-
-	if (match) {
-		// proto is already print in l4proto
-		// printf(" -m %s",
-		// 	match->alias ? match->alias(e) : e->u.user.name);
-
-		/* some matches don't provide a save function */
-		if (match->save && e->u.user.revision == match->revision)
-			match->save(ip, e);
-		// else if (match->save)
-		// 	printf(unsupported_rev);
-	} else {
-		if (e->u.match_size) {
-			fprintf(stderr,
-				"Can't find library for match `%s'\n",
-				e->u.user.name);
-			exit(1);
-		}
-	}
-	return 0;
-}
-
-static void print_iov_rule(const IPT_CHAINLABEL chain, const char *action, const struct ipt_entry *rule, struct xtc_handle *handle){
-
-	const struct xt_entry_target *t;
-
-	printf("+++iptables -> iov-iptables translator+++\n\n");
-	
-	char RULE_INDEX[20] = "";
-	
-	printf("iovnetctl iov-iptables chain %s rule %s%s ", chain, action, RULE_INDEX );
-
-	print_ip("src=", rule->ip.src.s_addr,rule->ip.smsk.s_addr,
-			rule->ip.invflags & IPT_INV_SRCIP);
-
-	print_ip("dst=", rule->ip.dst.s_addr, rule->ip.dmsk.s_addr,
-			rule->ip.invflags & IPT_INV_DSTIP);
-
-
-	// TODO Define a syntax to print interfaces in iovnet, still not supported.
-
-	// print_iface('i', e->ip.iniface, e->ip.iniface_mask,
-	// 	    e->ip.invflags & IPT_INV_VIA_IN);
-
-	// print_iface('o', e->ip.outiface, e->ip.outiface_mask,
-	// 	    e->ip.invflags & IPT_INV_VIA_OUT);
-
-
-	print_proto(rule->ip.proto, rule->ip.invflags & XT_INV_PROTO);
-
-	// print protocol dependent fields
-	// e.g. tcp/udp ports and/or tcp-flags
-	if (rule->target_offset)
-		IPT_MATCH_ITERATE(rule, print_match_save, &rule->ip);
-
-	// TODO verify if this approach is always safe
-	// FIXME this implementation do not support user-defined CHAINS
-	t = ipt_get_target((struct ipt_entry *)rule);
-	printf(" action=%s", t->u.user.name);
-
-	printf("\n");
-}
-
 /* Append entry `fw' to chain `chain'.  Equivalent to insert with
    rulenum = length of chain. */
 int
@@ -1999,7 +2022,7 @@ TC_APPEND_ENTRY(const IPT_CHAINLABEL chain,
 	//FIXME if ipv6 rule added, probably crash
 	struct ipt_entry * rule = (struct ipt_entry *)e;
 
-	print_iov_rule(chain, "append", rule, handle);
+	print_iov_rule(chain, "append", rule, -1, handle);
 	// printf("+chain: %s\n", chain);
 
 	//Avoid rules to get injected
