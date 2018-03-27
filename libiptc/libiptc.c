@@ -302,7 +302,7 @@ static void print_iov_rule(const IPT_CHAINLABEL chain, const char *action, const
 
 	const struct xt_entry_target *t;
 
-	printf("+++iptables -> iov-iptables translator+++\n\n");
+	printf("+++iptables -> iov-iptables translator+++\n");
 	
 	char RULE_INDEX[20] = "";
 	
@@ -340,7 +340,7 @@ static void print_iov_rule(const IPT_CHAINLABEL chain, const char *action, const
 	t = ipt_get_target((struct ipt_entry *)rule);
 	printf(" action=%s", t->u.user.name);
 
-	printf("\n");
+	printf("\n\n");
 }
 
 /**********************************************************************
