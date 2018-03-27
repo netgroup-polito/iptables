@@ -322,11 +322,13 @@ static void tcp_save(const void *ip, const struct xt_entry_match *match)
 			printf(" !");
 		if (tcpinfo->spts[0]
 		    != tcpinfo->spts[1])
-			printf(" --sport %u:%u",
+			// printf(" --sport %u:%u",
+			printf(" sport=%u:%u",
 			       tcpinfo->spts[0],
 			       tcpinfo->spts[1]);
 		else
-			printf(" --sport %u",
+			// printf(" --sport %u",
+			printf(" sport=%u",
 			       tcpinfo->spts[0]);
 	}
 
@@ -336,11 +338,13 @@ static void tcp_save(const void *ip, const struct xt_entry_match *match)
 			printf(" !");
 		if (tcpinfo->dpts[0]
 		    != tcpinfo->dpts[1])
-			printf(" --dport %u:%u",
+			// printf(" --dport %u:%u",
+			printf(" dport=%u:%u",
 			       tcpinfo->dpts[0],
 			       tcpinfo->dpts[1]);
 		else
-			printf(" --dport %u",
+			// printf(" --dport %u",
+			printf(" dport=%u",
 			       tcpinfo->dpts[0]);
 	}
 

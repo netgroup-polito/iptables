@@ -41,7 +41,7 @@
 
 #include "linux_list.h"
 
-//#define IPTC_DEBUG2 1
+//#define IPTC_DEBUG2 1	
 
 #ifdef IPTC_DEBUG2
 #include <fcntl.h>
@@ -1915,36 +1915,32 @@ static void print_proto(uint16_t proto, int invert)
 	}
 }
 
-// static const struct tcp_flag_names tcp_flag_names_xlate[] = {
-// 	{ "fin", 0x01 },
-// 	{ "syn", 0x02 },
-// 	{ "rst", 0x04 },
-// 	{ "psh", 0x08 },
-// 	{ "ack", 0x10 },
-// 	{ "urg", 0x20 },
-// };
+static int print_match_save(const struct xt_entry_match *e,
+			const struct ipt_ip *ip)
+{
+	const struct xtables_match *match =
+		xtables_find_match(e->u.user.name, XTF_TRY_LOAD, NULL);
 
-// static void
-// print_tcpf(uint8_t flags)
-// {
-// 	int have_flag = 0;
+	if (match) {
+		// proto is already print in l4proto
+		// printf(" -m %s",
+		// 	match->alias ? match->alias(e) : e->u.user.name);
 
-// 	while (flags) {
-// 		unsigned int i;
-
-// 		for (i = 0; (flags & tcp_flag_names[i].flag) == 0; i++);
-
-// 		if (have_flag)
-// 			printf(",");
-// 		printf("%s", tcp_flag_names[i].name);
-// 		have_flag = 1;
-
-// 		flags &= ~tcp_flag_names[i].flag;
-// 	}
-
-// 	if (!have_flag)
-// 		printf("NONE");
-// }
+		/* some matches don't provide a save function */
+		if (match->save && e->u.user.revision == match->revision)
+			match->save(ip, e);
+		// else if (match->save)
+		// 	printf(unsupported_rev);
+	} else {
+		if (e->u.match_size) {
+			fprintf(stderr,
+				"Can't find library for match `%s'\n",
+				e->u.user.name);
+			exit(1);
+		}
+	}
+	return 0;
+}
 
 static void print_iov_rule(const IPT_CHAINLABEL chain, const char *action, const struct ipt_entry *rule, struct xtc_handle *handle){
 
@@ -1974,12 +1970,10 @@ static void print_iov_rule(const IPT_CHAINLABEL chain, const char *action, const
 
 	print_proto(rule->ip.proto, rule->ip.invflags & XT_INV_PROTO);
 
-	if (rule->ip.flags & IPT_F_FRAG)
-		printf("%s -f",
-		       rule->ip.invflags & IPT_INV_FRAG ? " !" : "");
-
-	// print_tcpf(rule->ip.flags);
-
+	// print protocol dependent fields
+	// e.g. tcp/udp ports and/or tcp-flags
+	if (rule->target_offset)
+		IPT_MATCH_ITERATE(rule, print_match_save, &rule->ip);
 
 	// TODO verify if this approach is always safe
 	// FIXME this implementation do not support user-defined CHAINS
