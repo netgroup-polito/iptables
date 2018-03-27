@@ -275,6 +275,29 @@ print_tcpf(uint8_t flags)
 }
 
 static void
+print_tcpf_iov(uint8_t flags, char * prefix)
+{
+	int have_flag = 0;
+
+	while (flags) {
+		unsigned int i;
+
+		for (i = 0; (flags & tcp_flag_names[i].flag) == 0; i++);
+
+		if (have_flag)
+			printf(" ");
+			// printf(",");
+		printf("%s%s", prefix, tcp_flag_names[i].name);
+		have_flag = 1;
+
+		flags &= ~tcp_flag_names[i].flag;
+	}
+
+	// if (!have_flag)
+	// 	printf("NONE");
+}
+
+static void
 print_flags(uint8_t mask, uint8_t cmp, int invert, int numeric)
 {
 	if (mask || invert) {
@@ -359,10 +382,19 @@ static void tcp_save(const void *ip, const struct xt_entry_match *match)
 	    || (tcpinfo->invflags & XT_TCP_INV_FLAGS)) {
 		if (tcpinfo->invflags & XT_TCP_INV_FLAGS)
 			printf(" !");
-		printf(" --tcp-flags ");
-		print_tcpf(tcpinfo->flg_mask);
+		printf(" tcpflags='");
+		// print_tcpf(tcpinfo->flg_mask);
+		// printf(" ");
+		// print_tcpf(tcpinfo->flg_cmp);
+
+		// printf("0x%X 0x%X 0x%X 0x%X ", tcpinfo->flg_mask, tcpinfo->flg_cmp, tcpinfo->flg_mask & tcpinfo->flg_cmp, tcpinfo->flg_mask & ~(tcpinfo->flg_cmp) );
+
+		print_tcpf_iov(tcpinfo->flg_mask & tcpinfo->flg_cmp, "");
 		printf(" ");
-		print_tcpf(tcpinfo->flg_cmp);
+		print_tcpf_iov(tcpinfo->flg_mask & ~(tcpinfo->flg_cmp), "!");
+
+		printf("' ");
+
 	}
 }
 
