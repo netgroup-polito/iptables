@@ -302,11 +302,14 @@ static void print_iov_rule(const IPT_CHAINLABEL chain, const char *action, const
 
 	const struct xt_entry_target *t;
 
-	printf("+++iptables -> iov-iptables translator+++\n");
+	// printf("+++iptables -> iov-iptables translator+++\n");
 	
 	char RULE_INDEX[20] = "";
+
+	// TODO when 'rule' is needed?
+	// printf("iovnetctl ipt chain %s rule %s ", chain, action);
 	
-	printf("iovnetctl iov-iptables chain %s rule %s ", chain, action);
+	printf("iovnetctl iov-iptables chain %s %s ", chain, action);
 
 	if (rulenum!=-1){
 		printf("%d ", rulenum + 1);
@@ -340,8 +343,57 @@ static void print_iov_rule(const IPT_CHAINLABEL chain, const char *action, const
 	t = ipt_get_target((struct ipt_entry *)rule);
 	printf(" action=%s", t->u.user.name);
 
-	printf("\n\n");
+	printf("\n");
 }
+
+static void print_iov_policy(const IPT_CHAINLABEL chain, const IPT_CHAINLABEL policy, const char *action){
+
+	// const struct xt_entry_target *t;
+
+	// printf("+++iptables -> iov-iptables translator+++\n");
+
+	// char RULE_INDEX[20] = "";
+
+	// TODO when 'rule' is needed?
+	// printf("iovnetctl ipt chain %s rule %s ", chain, action);
+
+	printf("iovnetctl iov-iptables chain %s set default=%s ", chain, policy);
+
+	// if (rulenum!=-1){
+	// 	printf("%d ", rulenum + 1);
+	// }
+
+	// print_ip("src=", rule->ip.src.s_addr,rule->ip.smsk.s_addr,
+	// 		rule->ip.invflags & IPT_INV_SRCIP);
+
+	// print_ip("dst=", rule->ip.dst.s_addr, rule->ip.dmsk.s_addr,
+	// 		rule->ip.invflags & IPT_INV_DSTIP);
+
+
+	// // TODO Define a syntax to print interfaces in iovnet, still not supported.
+
+	// // print_iface('i', e->ip.iniface, e->ip.iniface_mask,
+	// // 	    e->ip.invflags & IPT_INV_VIA_IN);
+
+	// // print_iface('o', e->ip.outiface, e->ip.outiface_mask,
+	// // 	    e->ip.invflags & IPT_INV_VIA_OUT);
+
+
+	// print_proto(rule->ip.proto, rule->ip.invflags & XT_INV_PROTO);
+
+	// // print protocol dependent fields
+	// // e.g. tcp/udp ports and/or tcp-flags
+	// if (rule->target_offset)
+	// 	IPT_MATCH_ITERATE(rule, print_match_save, &rule->ip);
+
+	// // TODO verify if this approach is always safe
+	// // FIXME this implementation do not support user-defined CHAINS
+	// t = ipt_get_target((struct ipt_entry *)rule);
+	// printf(" action=%s", t->u.user.name);
+
+	printf("\n");
+}
+
 
 /**********************************************************************
  * iptc blob utility functions (iptcb_*)
@@ -2613,40 +2665,43 @@ TC_SET_POLICY(const IPT_CHAINLABEL chain,
 	      STRUCT_COUNTERS *counters,
 	      struct xtc_handle *handle)
 {
-	struct chain_head *c;
 
-	iptc_fn = TC_SET_POLICY;
+	print_iov_policy(chain, policy, "");
 
-	if (!(c = iptcc_find_label(chain, handle))) {
-		DEBUGP("cannot find chain `%s'\n", chain);
-		errno = ENOENT;
-		return 0;
-	}
+	// struct chain_head *c;
 
-	if (!iptcc_is_builtin(c)) {
-		DEBUGP("cannot set policy of userdefinedchain `%s'\n", chain);
-		errno = ENOENT;
-		return 0;
-	}
+	// iptc_fn = TC_SET_POLICY;
 
-	if (strcmp(policy, LABEL_ACCEPT) == 0)
-		c->verdict = -NF_ACCEPT - 1;
-	else if (strcmp(policy, LABEL_DROP) == 0)
-		c->verdict = -NF_DROP - 1;
-	else {
-		errno = EINVAL;
-		return 0;
-	}
+	// if (!(c = iptcc_find_label(chain, handle))) {
+	// 	DEBUGP("cannot find chain `%s'\n", chain);
+	// 	errno = ENOENT;
+	// 	return 0;
+	// }
 
-	if (counters) {
-		/* set byte and packet counters */
-		memcpy(&c->counters, counters, sizeof(STRUCT_COUNTERS));
-		c->counter_map.maptype = COUNTER_MAP_SET;
-	} else {
-		c->counter_map.maptype = COUNTER_MAP_NOMAP;
-	}
+	// if (!iptcc_is_builtin(c)) {
+	// 	DEBUGP("cannot set policy of userdefinedchain `%s'\n", chain);
+	// 	errno = ENOENT;
+	// 	return 0;
+	// }
 
-	set_changed(handle);
+	// if (strcmp(policy, LABEL_ACCEPT) == 0)
+	// 	c->verdict = -NF_ACCEPT - 1;
+	// else if (strcmp(policy, LABEL_DROP) == 0)
+	// 	c->verdict = -NF_DROP - 1;
+	// else {
+	// 	errno = EINVAL;
+	// 	return 0;
+	// }
+
+	// if (counters) {
+	// 	/* set byte and packet counters */
+	// 	memcpy(&c->counters, counters, sizeof(STRUCT_COUNTERS));
+	// 	c->counter_map.maptype = COUNTER_MAP_SET;
+	// } else {
+	// 	c->counter_map.maptype = COUNTER_MAP_NOMAP;
+	// }
+
+	// set_changed(handle);
 
 	return 1;
 }
