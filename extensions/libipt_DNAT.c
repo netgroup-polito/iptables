@@ -46,6 +46,10 @@ static const struct xt_option_entry DNAT_opts[] = {
 static struct ipt_natinfo *
 append_range(struct ipt_natinfo *info, const struct nf_nat_ipv4_range *range)
 {
+
+	printf ("++ WARNING DNAT rule - not inserted (iov-iptables compatibility not guaranteed).\n");
+	exit(-1);
+	
 	unsigned int size;
 
 	/* One rangesize already in struct ipt_natinfo */
