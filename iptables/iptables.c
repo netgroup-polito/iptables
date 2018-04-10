@@ -271,10 +271,10 @@ exit_printhelp(const struct xtables_rule_match *matches)
 }
 
 
-static void show_iov_rules(const xt_chainlabel chain){
+static void show_iov_rules(const xt_chainlabel chain, const char *rule){
 
 	if (chain != '\0'){
-		printf("iovnetctl iov-iptables chain %s show ", chain);
+		printf("iovnetctl iov-iptables chain %s show %s", chain, rule);
 	} else {
 		printf("iovnetctl iov-iptables chain show ");
 	}
@@ -926,7 +926,7 @@ list_entries(const xt_chainlabel chain, int rulenum, int verbose, int numeric,
 	     int expanded, int linenumbers, struct xtc_handle *handle)
 {
 
-	show_iov_rules(chain);
+	show_iov_rules(chain, "");
 	return 1;
 
 	int found = 0;
@@ -1182,7 +1182,7 @@ list_rules(const xt_chainlabel chain, int rulenum, int counters,
 	     struct xtc_handle *handle)
 {
 
-	show_iov_rules(chain);
+	show_iov_rules(chain, "rule");
 	return 1;
 
 	const char *this = NULL;
