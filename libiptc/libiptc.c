@@ -309,10 +309,27 @@ static void print_iov_rule(const IPT_CHAINLABEL chain, const char *action, const
 	// TODO when 'rule' is needed?
 	// printf("iovnetctl ipt chain %s rule %s ", chain, action);
 	
-	printf("iovnetctl iov-iptables chain %s %s ", chain, action);
+	char REPLACE[20];
+	char INSERT[20];
 
-	if (rulenum!=-1){
-		printf("%d ", rulenum + 1);
+	strcpy(REPLACE, "replace");
+	strcpy(INSERT, "insert");
+	
+	int replace_match;
+	int insert_match;
+
+	replace_match = strncmp(REPLACE, action, 7);
+	insert_match = strncmp(INSERT, action, 6);
+
+	if (replace_match == 0){
+		printf("iovnetctl iov-iptables chain %s add %d", chain, action, rulenum);
+	} else if (insert_match == 0){
+		printf("iovnetctl iov-iptables chain %s %s id=%d", chain, action, rulenum);
+	}else{
+		printf("iovnetctl iov-iptables chain %s %s ", chain, action);
+		if (rulenum!=-1){
+			printf("%d ", rulenum + 1);
+		}
 	}
 
 	print_ip("src=", rule->ip.src.s_addr,rule->ip.smsk.s_addr,
