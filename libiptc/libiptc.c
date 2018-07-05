@@ -311,20 +311,27 @@ static void print_iov_rule(const IPT_CHAINLABEL chain, const char *action, const
 	
 	char REPLACE[20];
 	char INSERT[20];
+	char FLUSH[20];
 
 	strcpy(REPLACE, "replace");
 	strcpy(INSERT, "insert");
+	strcpy(FLUSH, "flush");
 	
 	int replace_match;
 	int insert_match;
+	int flush_match;
 
 	replace_match = strncmp(REPLACE, action, 7);
 	insert_match = strncmp(INSERT, action, 6);
+	flush_match = strncmp(FLUSH, action, 5);
 
 	if (replace_match == 0){
 		printf("iovnetctl iov-iptables chain %s add %d", chain, action, rulenum);
 	} else if (insert_match == 0){
 		printf("iovnetctl iov-iptables chain %s %s id=%d", chain, action, rulenum);
+	}else if (flush_match == 0){
+		printf("iovnetctl iov-iptables chain %s rule del", chain);
+		return;
 	}else{
 		printf("iovnetctl iov-iptables chain %s %s ", chain, action);
 		if (rulenum!=-1){
@@ -2326,21 +2333,28 @@ TC_FLUSH_ENTRIES(const IPT_CHAINLABEL chain, struct xtc_handle *handle)
 	struct chain_head *c;
 	struct rule_head *r, *tmp;
 
-	iptc_fn = TC_FLUSH_ENTRIES;
-	if (!(c = iptcc_find_label(chain, handle))) {
-		errno = ENOENT;
-		return 0;
-	}
+	const struct ipt_entry * ipt;
 
-	list_for_each_entry_safe(r, tmp, &c->rules, list) {
-		iptcc_delete_rule(r);
-	}
+	print_iov_rule(chain, "flush", ipt , -1, handle);
 
-	c->num_rules = 0;
-
-	set_changed(handle);
-
+	//Avoid rules to get injected
 	return 1;
+
+	// iptc_fn = TC_FLUSH_ENTRIES;
+	// if (!(c = iptcc_find_label(chain, handle))) {
+	// 	errno = ENOENT;
+	// 	return 0;
+	// }
+
+	// list_for_each_entry_safe(r, tmp, &c->rules, list) {
+	// 	iptcc_delete_rule(r);
+	// }
+
+	// c->num_rules = 0;
+
+	// set_changed(handle);
+
+	// return 1;
 }
 
 /* Zeroes the counters in a chain. */
