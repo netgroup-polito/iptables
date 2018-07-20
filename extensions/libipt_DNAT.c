@@ -47,9 +47,9 @@ static struct ipt_natinfo *
 append_range(struct ipt_natinfo *info, const struct nf_nat_ipv4_range *range)
 {
 
-	printf ("++ WARNING DNAT rule - not inserted (iov-iptables compatibility not guaranteed).\n");
-	exit(-1);
-	
+	// printf ("++ WARNING DNAT rule - not inserted (iov-iptables compatibility not guaranteed).\n");
+	// exit(-1);
+
 	unsigned int size;
 
 	/* One rangesize already in struct ipt_natinfo */
@@ -208,7 +208,8 @@ static void print_range(const struct nf_nat_ipv4_range *r)
 		}
 	}
 	if (r->flags & NF_NAT_RANGE_PROTO_SPECIFIED) {
-		printf(":");
+		// printf(":");
+		printf(" to-dport=");
 		printf("%hu", ntohs(r->min.tcp.port));
 		if (r->max.tcp.port != r->min.tcp.port)
 			printf("-%hu", ntohs(r->max.tcp.port));
@@ -237,7 +238,8 @@ static void DNAT_save(const void *ip, const struct xt_entry_target *target)
 	unsigned int i = 0;
 
 	for (i = 0; i < info->mr.rangesize; i++) {
-		printf(" --to-destination ");
+		// printf(" --to-destination ");
+		printf(" to-dst=");
 		print_range(&info->mr.range[i]);
 		if (info->mr.range[i].flags & NF_NAT_RANGE_PROTO_RANDOM)
 			printf(" --random");

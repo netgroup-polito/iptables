@@ -41,7 +41,7 @@
 
 #include "linux_list.h"
 
-//#define IPTC_DEBUG2 1	
+//#define IPTC_DEBUG2 1
 
 #ifdef IPTC_DEBUG2
 #include <fcntl.h>
@@ -214,6 +214,39 @@ static void do_check(struct xtc_handle *h, unsigned int line);
 //TODO
 //Copied from iptables/iptables.c
 
+/* This assumes that mask is contiguous, and byte-bounded. */
+static void
+print_iface(char letter, const char *iface, const unsigned char *mask,
+	    int invert)
+{
+	unsigned int i;
+
+	if (mask[0] == 0)
+		return;
+
+	// printf("%s -%c ", invert ? " !" : "", letter);
+	if (letter == 'i')
+		printf(" in-iface=", invert ? " !" : "", letter);
+	if (letter == 'o')
+		printf(" out-iface=", invert ? " !" : "", letter);
+
+	for (i = 0; i < IFNAMSIZ; i++) {
+		if (mask[i] != 0) {
+			if (iface[i] != '\0')
+				printf("%c", iface[i]);
+		} else {
+			/* we can access iface[i-1] here, because
+			 * a few lines above we make sure that mask[0] != 0 */
+			if (iface[i-1] != '\0')
+				printf("+");
+			break;
+		}
+	}
+}
+
+//TODO
+//Copied from iptables/iptables.c
+
 /* Print a given ip including mask if necessary. */
 static void print_ip(const char *prefix, uint32_t ip,
 		     uint32_t mask, int invert)
@@ -303,12 +336,15 @@ static void print_iov_rule(const IPT_CHAINLABEL chain, const char *action, const
 	const struct xt_entry_target *t;
 
 	// printf("+++iptables -> iov-iptables translator+++\n");
-	
+
 	char RULE_INDEX[20] = "";
 
 	// TODO when 'rule' is needed?
 	// printf("iovnetctl ipt chain %s rule %s ", chain, action);
-	
+
+	char PREROUTING[20];
+	char POSTROUTING[20];
+
 	char REPLACE[20];
 	char INSERT[20];
 	char FLUSH[20];
@@ -316,56 +352,140 @@ static void print_iov_rule(const IPT_CHAINLABEL chain, const char *action, const
 	strcpy(REPLACE, "replace");
 	strcpy(INSERT, "insert");
 	strcpy(FLUSH, "flush");
-	
+	strcpy(PREROUTING, "PREROUTING");
+	strcpy(POSTROUTING, "POSTROUTING");
+
 	int replace_match;
 	int insert_match;
 	int flush_match;
+
+	int prerouting_match;
+	int postrouting_match;
 
 	replace_match = strncmp(REPLACE, action, 7);
 	insert_match = strncmp(INSERT, action, 6);
 	flush_match = strncmp(FLUSH, action, 5);
 
-	if (replace_match == 0){
-		printf("iovnetctl iov-iptables chain %s add %d", chain, action, rulenum);
-	} else if (insert_match == 0){
-		printf("iovnetctl iov-iptables chain %s %s id=%d", chain, action, rulenum);
-	}else if (flush_match == 0){
-		printf("iovnetctl iov-iptables chain %s rule del", chain);
-		return;
-	}else{
-		printf("iovnetctl iov-iptables chain %s %s ", chain, action);
-		if (rulenum!=-1){
-			printf("%d ", rulenum + 1);
+	prerouting_match = strncmp(PREROUTING, chain, 10);
+	postrouting_match = strncmp(POSTROUTING, chain, 11);
+
+	if (prerouting_match == 0 || postrouting_match == 0){
+
+		if (replace_match == 0){
+			printf("iovnetctl iov-iptables nat %s add %d", chain, action, rulenum);
+		} else if (insert_match == 0){
+			printf("iovnetctl iov-iptables nat %s %s id=%d", chain, action, rulenum);
+		}else if (flush_match == 0){
+			printf("iovnetctl iov-iptables nat %s rule del", chain);
+			return;
+		}else{
+			printf("iovnetctl iov-iptables nat %s %s ", chain, action);
+			if (rulenum!=-1){
+				printf("%d ", rulenum + 1);
+			}
 		}
+
+		print_ip("src=", rule->ip.src.s_addr,rule->ip.smsk.s_addr,
+				rule->ip.invflags & IPT_INV_SRCIP);
+
+		print_ip("dst=", rule->ip.dst.s_addr, rule->ip.dmsk.s_addr,
+				rule->ip.invflags & IPT_INV_DSTIP);
+
+		print_iface('i', rule->ip.iniface, rule->ip.iniface_mask,
+			    rule->ip.invflags & IPT_INV_VIA_IN);
+
+		print_iface('o', rule->ip.outiface, rule->ip.outiface_mask,
+			    rule->ip.invflags & IPT_INV_VIA_OUT);
+
+
+		print_proto(rule->ip.proto, rule->ip.invflags & XT_INV_PROTO);
+
+		// print protocol dependent fields
+		// e.g. tcp/udp ports and/or tcp-flags
+		if (rule->target_offset)
+			IPT_MATCH_ITERATE(rule, print_match_save, &rule->ip);
+
+		// TODO verify if this approach is always safe
+		// FIXME this implementation do not support user-defined CHAINS
+		t = ipt_get_target((struct ipt_entry *)rule);
+		printf(" action=%s", t->u.user.name);
+
+		/* Print target name and targinfo part */
+		const char *target_name;
+		target_name = iptc_get_target(rule, handle);
+		// t = ipt_get_target((struct ipt_entry *)e);
+
+		if (t->u.user.name[0]) {
+
+			const struct xtables_target *target =
+				xtables_find_target(t->u.user.name, XTF_TRY_LOAD);
+
+			if (!target) {
+				fprintf(stderr, "Can't find library for target `%s'\n",
+					t->u.user.name);
+				exit(1);
+			}
+
+			if (target->save && t->u.user.revision == target->revision)
+				target->save(&rule->ip, t);
+			else if (target->save)
+				printf("unsupported rev");//unsupported_rev);
+			else {
+				/* If the target size is greater than xt_entry_target
+				* there is something to be saved, we just don't know
+				* how to print it */
+				if (t->u.target_size !=
+					sizeof(struct xt_entry_target)) {
+					fprintf(stderr, "Target `%s' is missing "
+							"save function\n",
+						t->u.user.name);
+					exit(1);
+				}
+			}
+		} //else if (target_name && (*target_name != '\0'))
+
+	} else
+	{
+		if (replace_match == 0){
+			printf("iovnetctl iov-iptables chain %s add %d", chain, action, rulenum);
+		} else if (insert_match == 0){
+			printf("iovnetctl iov-iptables chain %s %s id=%d", chain, action, rulenum);
+		}else if (flush_match == 0){
+			printf("iovnetctl iov-iptables chain %s rule del", chain);
+			return;
+		}else{
+			printf("iovnetctl iov-iptables chain %s %s ", chain, action);
+			if (rulenum!=-1){
+				printf("%d ", rulenum + 1);
+			}
+		}
+
+		print_ip("src=", rule->ip.src.s_addr,rule->ip.smsk.s_addr,
+				rule->ip.invflags & IPT_INV_SRCIP);
+
+		print_ip("dst=", rule->ip.dst.s_addr, rule->ip.dmsk.s_addr,
+				rule->ip.invflags & IPT_INV_DSTIP);
+
+
+		// TODO Define a syntax to print interfaces in iovnet, still not supported.
+		// print_iface('i', rule->ip.iniface, rule->ip.iniface_mask,
+		// 	    rule->ip.invflags & IPT_INV_VIA_IN);
+
+		// print_iface('o', rule->ip.outiface, rule->ip.outiface_mask,
+		// 	    rule->ip.invflags & IPT_INV_VIA_OUT);
+
+		print_proto(rule->ip.proto, rule->ip.invflags & XT_INV_PROTO);
+
+		// print protocol dependent fields
+		// e.g. tcp/udp ports and/or tcp-flags
+		if (rule->target_offset)
+			IPT_MATCH_ITERATE(rule, print_match_save, &rule->ip);
+
+		// TODO verify if this approach is always safe
+		// FIXME this implementation do not support user-defined CHAINS
+		t = ipt_get_target((struct ipt_entry *)rule);
+		printf(" action=%s", t->u.user.name);
 	}
-
-	print_ip("src=", rule->ip.src.s_addr,rule->ip.smsk.s_addr,
-			rule->ip.invflags & IPT_INV_SRCIP);
-
-	print_ip("dst=", rule->ip.dst.s_addr, rule->ip.dmsk.s_addr,
-			rule->ip.invflags & IPT_INV_DSTIP);
-
-
-	// TODO Define a syntax to print interfaces in iovnet, still not supported.
-
-	// print_iface('i', e->ip.iniface, e->ip.iniface_mask,
-	// 	    e->ip.invflags & IPT_INV_VIA_IN);
-
-	// print_iface('o', e->ip.outiface, e->ip.outiface_mask,
-	// 	    e->ip.invflags & IPT_INV_VIA_OUT);
-
-
-	print_proto(rule->ip.proto, rule->ip.invflags & XT_INV_PROTO);
-
-	// print protocol dependent fields
-	// e.g. tcp/udp ports and/or tcp-flags
-	if (rule->target_offset)
-		IPT_MATCH_ITERATE(rule, print_match_save, &rule->ip);
-
-	// TODO verify if this approach is always safe
-	// FIXME this implementation do not support user-defined CHAINS
-	t = ipt_get_target((struct ipt_entry *)rule);
-	printf(" action=%s", t->u.user.name);
 
 	printf("\n");
 }
