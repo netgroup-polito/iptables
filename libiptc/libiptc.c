@@ -1880,9 +1880,9 @@ static const char *standard_target_map(int verdict)
 			return LABEL_QUEUE;
 			break;
 		default:
-			fprintf(stderr, "ERROR: %d not a valid target)\n",
-				verdict);
-			abort();
+			// fprintf(stderr, "ERROR: %d not a valid target)\n",
+			// 	verdict);
+			// abort();
 			break;
 	}
 	/* not reached */
