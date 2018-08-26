@@ -283,15 +283,15 @@ static void show_iov_rules(const xt_chainlabel chain, const char *rule, char* ta
 
 	if (nat){
 		if (chain != '\0'){
-			printf("iovnetctl iov-iptables nat %s show %s", chain, rule);
+			printf("polycubectl pcn-iptables nat %s show %s", chain, rule);
 		} else {
-			printf("iovnetctl iov-iptables nat show ");
+			printf("polycubectl pcn-iptables nat show ");
 		}
 	}else{
 		if (chain != '\0'){
-			printf("iovnetctl iov-iptables chain %s show %s", chain, rule);
+			printf("polycubectl pcn-iptables chain %s show %s", chain, rule);
 		} else {
-			printf("iovnetctl iov-iptables chain show ");
+			printf("polycubectl pcn-iptables chain show ");
 		}
 	}
 

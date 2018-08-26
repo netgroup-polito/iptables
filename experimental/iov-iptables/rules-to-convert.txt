@@ -1,35 +1,35 @@
 + sudo ./iptables -A INPUT -s 10.1.1.1 -j ACCEPT
-+++iptables -> iov-iptables translator+++
-iovnetctl iov-iptables chain INPUT rule append  src=10.1.1.1/32 action=ACCEPT
++++iptables -> pcn-iptables translator+++
+polycubectl pcn-iptables chain INPUT rule append  src=10.1.1.1/32 action=ACCEPT
 
 + sudo ./iptables -A FORWARD -d 20.1.1.1 -j DROP
-+++iptables -> iov-iptables translator+++
-iovnetctl iov-iptables chain FORWARD rule append  dst=20.1.1.1/32 action=DROP
++++iptables -> pcn-iptables translator+++
+polycubectl pcn-iptables chain FORWARD rule append  dst=20.1.1.1/32 action=DROP
 
 + sudo ./iptables -A OUTPUT -s 10.0.0.0/24 -d 20.0.0.0/16 -j ACCEPT
-+++iptables -> iov-iptables translator+++
-iovnetctl iov-iptables chain OUTPUT rule append  src=10.0.0.0/24 dst=20.0.0.0/16 action=ACCEPT
++++iptables -> pcn-iptables translator+++
+polycubectl pcn-iptables chain OUTPUT rule append  src=10.0.0.0/24 dst=20.0.0.0/16 action=ACCEPT
 
 + sudo ./iptables -I INPUT -s 10.1.1.1 -j ACCEPT
-+++iptables -> iov-iptables translator+++
-iovnetctl iov-iptables chain INPUT rule insert 1  src=10.1.1.1/32 action=ACCEPT
++++iptables -> pcn-iptables translator+++
+polycubectl pcn-iptables chain INPUT rule insert 1  src=10.1.1.1/32 action=ACCEPT
 
 + sudo ./iptables -I 10 INPUT -s 10.1.1.1 -j ACCEPT
 iptables v1.6.2: Invalid rule number `INPUT'
 Try `iptables -h' or 'iptables --help' for more information.
 + sudo ./iptables -D INPUT -s 10.1.1.1 -j ACCEPT
-+++iptables -> iov-iptables translator+++
-iovnetctl iov-iptables chain INPUT rule delete  src=10.1.1.1/32 action=ACCEPT
++++iptables -> pcn-iptables translator+++
+polycubectl pcn-iptables chain INPUT rule delete  src=10.1.1.1/32 action=ACCEPT
 
 + sudo ./iptables -A INPUT -s 10.1.1.1 -d 20.1.1.1/30 --proto tcp --sport 80 --dport=100 --tcp-flags ALL SYN,ACK -j ACCEPT
-+++iptables -> iov-iptables translator+++
-iovnetctl iov-iptables chain INPUT rule append  src=10.1.1.1/32 dst=20.1.1.0/30 l4proto=tcp sport=80 dport=100 tcpflags='SYN ACK !FIN !RST !PSH !URG'  action=ACCEPT
++++iptables -> pcn-iptables translator+++
+polycubectl pcn-iptables chain INPUT rule append  src=10.1.1.1/32 dst=20.1.1.0/30 l4proto=tcp sport=80 dport=100 tcpflags='SYN ACK !FIN !RST !PSH !URG'  action=ACCEPT
 
 + sudo ./iptables -A INPUT -s 10.1.1.1 -d 20.1.1.1/30 --proto tcp --tcp-flags SYN,ACK ACK -j ACCEPT
-+++iptables -> iov-iptables translator+++
-iovnetctl iov-iptables chain INPUT rule append  src=10.1.1.1/32 dst=20.1.1.0/30 l4proto=tcp tcpflags='ACK !SYN'  action=ACCEPT
++++iptables -> pcn-iptables translator+++
+polycubectl pcn-iptables chain INPUT rule append  src=10.1.1.1/32 dst=20.1.1.0/30 l4proto=tcp tcpflags='ACK !SYN'  action=ACCEPT
 
 + sudo ./iptables -A INPUT -s 10.1.1.1 -d 20.1.1.1/30 --proto udp --sport 8080 --dport=8080 -j DROP
-+++iptables -> iov-iptables translator+++
-iovnetctl iov-iptables chain INPUT rule append  src=10.1.1.1/32 dst=20.1.1.0/30 l4proto=udp sport=8080 dport=8080 action=DROP
++++iptables -> pcn-iptables translator+++
+polycubectl pcn-iptables chain INPUT rule append  src=10.1.1.1/32 dst=20.1.1.0/30 l4proto=udp sport=8080 dport=8080 action=DROP
 
