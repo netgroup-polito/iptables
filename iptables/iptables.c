@@ -271,7 +271,7 @@ exit_printhelp(const struct xtables_rule_match *matches)
 }
 
 
-static void show_iov_rules(const xt_chainlabel chain, const char *rule, char* table){
+static void show_pcn_rules(const xt_chainlabel chain, const char *rule, char* table){
 
 	bool nat = false;
 
@@ -942,7 +942,7 @@ list_entries(const xt_chainlabel chain, int rulenum, int verbose, int numeric,
 	     int expanded, int linenumbers, struct xtc_handle *handle, char *table)
 {
 
-	show_iov_rules(chain, "", table);
+	show_pcn_rules(chain, "", table);
 	return 1;
 
 	int found = 0;
@@ -1198,7 +1198,7 @@ list_rules(const xt_chainlabel chain, int rulenum, int counters,
 	     struct xtc_handle *handle, char *table)
 {
 
-	show_iov_rules(chain, "rule", table);
+	show_pcn_rules(chain, "rule", table);
 	return 1;
 
 	const char *this = NULL;

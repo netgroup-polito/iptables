@@ -275,7 +275,7 @@ print_tcpf(uint8_t flags)
 }
 
 static void
-print_tcpf_iov(uint8_t flags, char * prefix)
+print_tcpf_pcn(uint8_t flags, char * prefix)
 {
 	int have_flag = 0;
 
@@ -389,9 +389,9 @@ static void tcp_save(const void *ip, const struct xt_entry_match *match)
 
 		// printf("0x%X 0x%X 0x%X 0x%X ", tcpinfo->flg_mask, tcpinfo->flg_cmp, tcpinfo->flg_mask & tcpinfo->flg_cmp, tcpinfo->flg_mask & ~(tcpinfo->flg_cmp) );
 
-		print_tcpf_iov(tcpinfo->flg_mask & tcpinfo->flg_cmp, "");
+		print_tcpf_pcn(tcpinfo->flg_mask & tcpinfo->flg_cmp, "");
 		printf(" ");
-		print_tcpf_iov(tcpinfo->flg_mask & ~(tcpinfo->flg_cmp), "!");
+		print_tcpf_pcn(tcpinfo->flg_mask & ~(tcpinfo->flg_cmp), "!");
 
 		printf("' ");
 

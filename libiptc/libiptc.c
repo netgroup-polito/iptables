@@ -198,7 +198,7 @@ static void do_check(struct xtc_handle *h, unsigned int line);
 #endif
 
 
-/***Utility for iov converter: copied from iptables.c**/
+/***Utility for pcn converter: copied from iptables.c**/
 
 //TODO
 //Copied from iptables/iptables.c
@@ -331,7 +331,7 @@ static int print_match_save(const struct xt_entry_match *e,
 	return 0;
 }
 
-static void print_iov_rule(const IPT_CHAINLABEL chain, const char *action, const struct ipt_entry *rule, unsigned int rulenum, struct xtc_handle *handle){
+static void print_pcn_rule(const IPT_CHAINLABEL chain, const char *action, const struct ipt_entry *rule, unsigned int rulenum, struct xtc_handle *handle){
 
 	const struct xt_entry_target *t;
 
@@ -467,7 +467,7 @@ static void print_iov_rule(const IPT_CHAINLABEL chain, const char *action, const
 				rule->ip.invflags & IPT_INV_DSTIP);
 
 
-		// TODO Define a syntax to print interfaces in iovnet, still not supported.
+		// TODO Define a syntax to print interfaces in pcnnet, still not supported.
 		// print_iface('i', rule->ip.iniface, rule->ip.iniface_mask,
 		// 	    rule->ip.invflags & IPT_INV_VIA_IN);
 
@@ -490,7 +490,7 @@ static void print_iov_rule(const IPT_CHAINLABEL chain, const char *action, const
 	printf("\n");
 }
 
-static void print_iov_policy(const IPT_CHAINLABEL chain, const IPT_CHAINLABEL policy, const char *action){
+static void print_pcn_policy(const IPT_CHAINLABEL chain, const IPT_CHAINLABEL policy, const char *action){
 
 	printf("polycubectl pcn-iptables chain %s set default=%s ", chain, policy);
 
@@ -2056,7 +2056,7 @@ TC_INSERT_ENTRY(const IPT_CHAINLABEL chain,
 	//FIXME if ipv6 rule added, probably crash
 	struct ipt_entry * rule = (struct ipt_entry *)e;
 
-	print_iov_rule(chain, "insert", rule, rulenum, handle);
+	print_pcn_rule(chain, "insert", rule, rulenum, handle);
 	// printf("+chain: %s\n", chain);
 
 	//Avoid rules to get injected
@@ -2127,7 +2127,7 @@ TC_REPLACE_ENTRY(const IPT_CHAINLABEL chain,
 	//FIXME if ipv6 rule added, probably crash
 	struct ipt_entry * rule = (struct ipt_entry *)e;
 
-	print_iov_rule(chain, "replace", rule, rulenum, handle);
+	print_pcn_rule(chain, "replace", rule, rulenum, handle);
 	// printf("+chain: %s\n", chain);
 
 	//Avoid rules to get injected
@@ -2190,7 +2190,7 @@ TC_APPEND_ENTRY(const IPT_CHAINLABEL chain,
 	//FIXME if ipv6 rule added, probably crash
 	struct ipt_entry * rule = (struct ipt_entry *)e;
 
-	print_iov_rule(chain, "append", rule, -1, handle);
+	print_pcn_rule(chain, "append", rule, -1, handle);
 	// printf("+chain: %s\n", chain);
 
 	//Avoid rules to get injected
@@ -2312,7 +2312,7 @@ static int delete_entry(const IPT_CHAINLABEL chain, const STRUCT_ENTRY *origfw,
 	//FIXME if ipv6 rule added, probably crash
 	struct ipt_entry * rule = (struct ipt_entry *)origfw;
 
-	print_iov_rule(chain, "delete", rule, -1, handle);
+	print_pcn_rule(chain, "delete", rule, -1, handle);
 	// printf("+chain: %s\n", chain);
 
 	//Avoid rules to get injected
@@ -2455,7 +2455,7 @@ TC_FLUSH_ENTRIES(const IPT_CHAINLABEL chain, struct xtc_handle *handle)
 
 	const struct ipt_entry * ipt;
 
-	print_iov_rule(chain, "flush", ipt , -1, handle);
+	print_pcn_rule(chain, "flush", ipt , -1, handle);
 
 	//Avoid rules to get injected
 	return 1;
@@ -2776,7 +2776,7 @@ TC_SET_POLICY(const IPT_CHAINLABEL chain,
 	      struct xtc_handle *handle)
 {
 
-	print_iov_policy(chain, policy, "");
+	print_pcn_policy(chain, policy, "");
 
 	// struct chain_head *c;
 
