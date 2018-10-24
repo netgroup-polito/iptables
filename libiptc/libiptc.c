@@ -484,10 +484,23 @@ static void print_pcn_rule(const IPT_CHAINLABEL chain, const char *action, const
 		printf(" action=%s", t->u.user.name);
 	}
 
-	printf("\n");
+	//printf("\n");
+	FILE *fd1 = popen("lsmod | grep xt_conntrack", "r");
+  	char buf1[16];
+  	if (fread (buf1, 1, sizeof (buf1), fd1) > 0) {
+		// Module is loaded
+		delete_module("xt_conntrack", O_NONBLOCK);
+	}
 
-	delete_module("xt_conntrack", O_NONBLOCK);
-	delete_module("nf_conntrack", O_NONBLOCK);
+	FILE *fd2 = popen("lsmod | grep nf_conntrack", "r");
+        char buf2[16];
+        if (fread (buf2, 1, sizeof (buf2), fd2) > 0) {
+                // Module is loaded
+                delete_module("nf_conntrack", O_NONBLOCK);
+        }
+
+	fclose(fd1);
+	fclose(fd2);
 }
 
 static void print_pcn_policy(const IPT_CHAINLABEL chain, const IPT_CHAINLABEL policy, const char *action){
