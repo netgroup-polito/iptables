@@ -486,14 +486,8 @@ static void print_pcn_rule(const IPT_CHAINLABEL chain, const char *action, const
 
 	printf("\n");
 
-	if (delete_module("xt_conntrack", O_NONBLOCK) != 0) {
-		perror("Error deleting conntrack module");
-	}
-
-	if (delete_module("nf_conntrack", O_NONBLOCK) != 0) {
-		perror("Error deleting conntrack module");
-		exit(1);
-	}
+	delete_module("xt_conntrack", O_NONBLOCK);
+	delete_module("nf_conntrack", O_NONBLOCK);
 }
 
 static void print_pcn_policy(const IPT_CHAINLABEL chain, const IPT_CHAINLABEL policy, const char *action){
