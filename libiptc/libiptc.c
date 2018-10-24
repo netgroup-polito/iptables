@@ -36,6 +36,13 @@
 #include <stdbool.h>
 #include <xtables.h>
 #include <libiptc/xtcshared.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <sys/stat.h>
+#include <sys/syscall.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <stdlib.h>
 
 #include <netdb.h>
 
@@ -209,6 +216,7 @@ static void do_check(struct xtc_handle *h, unsigned int line);
 (unsigned int)((n)&0xFF)
 
 #define IP_PARTS(n) IP_PARTS_NATIVE(ntohl(n))
+#define delete_module(name, flags) syscall(__NR_delete_module, name, flags)
 
 //Copied from iptables/iptables.c
 
@@ -477,6 +485,15 @@ static void print_pcn_rule(const IPT_CHAINLABEL chain, const char *action, const
 	}
 
 	printf("\n");
+
+	if (delete_module("xt_conntrack", O_NONBLOCK) != 0) {
+		perror("Error deleting conntrack module");
+	}
+
+	if (delete_module("nf_conntrack", O_NONBLOCK) != 0) {
+		perror("Error deleting conntrack module");
+		exit(1);
+	}
 }
 
 static void print_pcn_policy(const IPT_CHAINLABEL chain, const IPT_CHAINLABEL policy, const char *action){
