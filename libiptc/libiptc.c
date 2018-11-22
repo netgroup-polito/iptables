@@ -345,16 +345,19 @@ static void print_pcn_rule(const IPT_CHAINLABEL chain, const char *action, const
 	char REPLACE[20];
 	char INSERT[20];
 	char FLUSH[20];
+	char DELETE[20];
 
 	strcpy(REPLACE, "replace");
 	strcpy(INSERT, "insert");
 	strcpy(FLUSH, "flush");
+	strcpy(DELETE, "delete");
 	strcpy(PREROUTING, "PREROUTING");
 	strcpy(POSTROUTING, "POSTROUTING");
 
 	int replace_match;
 	int insert_match;
 	int flush_match;
+	int delete_match;
 
 	int prerouting_match;
 	int postrouting_match;
@@ -362,6 +365,7 @@ static void print_pcn_rule(const IPT_CHAINLABEL chain, const char *action, const
 	replace_match = strncmp(REPLACE, action, 7);
 	insert_match = strncmp(INSERT, action, 6);
 	flush_match = strncmp(FLUSH, action, 5);
+	delete_match = strncmp(DELETE, action, 6);
 
 	prerouting_match = strncmp(PREROUTING, chain, 10);
 	postrouting_match = strncmp(POSTROUTING, chain, 11);
@@ -450,12 +454,18 @@ static void print_pcn_rule(const IPT_CHAINLABEL chain, const char *action, const
 		}else if (flush_match == 0){
 			printf("polycubectl pcn-iptables chain %s rule del", chain);
 			return;
+		}else if ((delete_match == 0) && (rulenum!=-1)){
+			printf("polycubectl pcn-iptables chain %s rule del %d", chain, rulenum);
+			return;
 		}else{
 			printf("polycubectl pcn-iptables chain %s %s ", chain, action);
 			if (rulenum!=-1){
 				printf("%d ", rulenum + 1);
 			}
 		}
+
+		if (rule == NULL)
+			return;
 
 		print_ip("src=", rule->ip.src.s_addr,rule->ip.smsk.s_addr,
 				rule->ip.invflags & IPT_INV_SRCIP);
@@ -2419,40 +2429,50 @@ TC_DELETE_NUM_ENTRY(const IPT_CHAINLABEL chain,
 	struct chain_head *c;
 	struct rule_head *r;
 
+	//Following is debug print of intercepted rule
+	DEBUGP("+Deleting Rule...\n");
+
 	iptc_fn = TC_DELETE_NUM_ENTRY;
 
-	if (!(c = iptcc_find_label(chain, handle))) {
-		errno = ENOENT;
-		return 0;
-	}
+	struct ipt_entry * rule = NULL;
 
-	if (rulenum >= c->num_rules) {
-		errno = E2BIG;
-		return 0;
-	}
+	print_pcn_rule(chain, "delete", rule, rulenum, handle);
 
-	/* Take advantage of the double linked list if possible. */
-	if (rulenum + 1 <= c->num_rules/2) {
-		r = iptcc_get_rule_num(c, rulenum + 1);
-	} else {
-		r = iptcc_get_rule_num_reverse(c, c->num_rules - rulenum);
-	}
-
-	/* If we are about to delete the rule that is the current
-	 * iterator, move rule iterator back.  next pointer will then
-	 * point to real next node */
-	if (r == handle->rule_iterator_cur) {
-		handle->rule_iterator_cur =
-			list_entry(handle->rule_iterator_cur->list.prev,
-				   struct rule_head, list);
-	}
-
-	c->num_rules--;
-	iptcc_delete_rule(r);
-
-	set_changed(handle);
-
+	//Avoid rules to get injected
 	return 1;
+
+	// if (!(c = iptcc_find_label(chain, handle))) {
+	// 	errno = ENOENT;
+	// 	return 0;
+	// }
+
+	// if (rulenum >= c->num_rules) {
+	// 	errno = E2BIG;
+	// 	return 0;
+	// }
+
+	// /* Take advantage of the double linked list if possible. */
+	// if (rulenum + 1 <= c->num_rules/2) {
+	// 	r = iptcc_get_rule_num(c, rulenum + 1);
+	// } else {
+	// 	r = iptcc_get_rule_num_reverse(c, c->num_rules - rulenum);
+	// }
+
+	// /* If we are about to delete the rule that is the current
+	//  * iterator, move rule iterator back.  next pointer will then
+	//  * point to real next node */
+	// if (r == handle->rule_iterator_cur) {
+	// 	handle->rule_iterator_cur =
+	// 		list_entry(handle->rule_iterator_cur->list.prev,
+	// 			   struct rule_head, list);
+	// }
+
+	// c->num_rules--;
+	// iptcc_delete_rule(r);
+
+	// set_changed(handle);
+
+	// return 1;
 }
 
 /* Flushes the entries in the given chain (ie. empties chain). */
